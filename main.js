@@ -4,10 +4,9 @@ const eventContainer = document.querySelector('#events-container');
 const eventsAmtToFetch = document.querySelector('#eventAmt');
 
 const getRandomNumBetween = (min, max) => Math.floor(Math.random() * (max-min +1)) + min;
-const getMonth = (month) => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Sep', 'Oct', 'Nov', 'Dec']
+const getMonth = (month) => ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 [month];
-const getDayOfWeek = (weekday) => ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-[weekday];
+const getDayOfWeek = (weekday) => ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][weekday];
 const isAM = (hour) => hour < 12;
 const getHour = (hour) => (hour <= 12 ? hour :  hour - 12);
 const getMinute = (minute) => (minute === 0 ? '00' : minute);
@@ -16,49 +15,61 @@ const getMinute = (minute) => (minute === 0 ? '00' : minute);
 
 
 function processDate(date){
-  const hour = getHour(date.getHours()) === 0 
-    ? false 
-    : getHour(date.getHours());
-  const minute = getMinute(date.getMinutes());
-  const timeSuffix = `<small>${isAM(date.getHours()) 
-    ? `AM` 
-    : `PM`
-  }</small>`
-  const time = hour && `${hour}:${minute}${timeSuffix}`;
+  let rawHour = date.getHours();
+  let hour = rawHour % 12;
+  if (hour === 0) hour = 12;
+
+  const minute = date.getMinutes().toString().padStart(2, "0");
+  const suffix = rawHour < 12 ? "AM" : "PM";
+
+  const time = `${hour}:${minute} <small>${suffix}</small>`;
 
   return {
     month: getMonth(date.getMonth()),
     weekday: getDayOfWeek(date.getDay()),
     time,
     date: date.getDate(),
-  }
+  };
 }
 
+
 function mapEventObject(event) {
-  const startDate = event.start.dateTime 
-    ? processDate(new Date(event.start.dateTime)) 
-    : processDate(new Date(`${event.start.date}T00:000:`))
-  const endDate = event.end.dateTime 
-    ? processDate(new Date(event.end.dateTime)) 
-    : processDate(new Date(`${event.end.date}T00:000:`))
+  const start = new Date(event.start.dateTime || `${event.start.date}T00:00:00`);
+  const end   = new Date(event.end.dateTime   || `${event.end.date}T00:00:00`);
+
+  const s = processDate(start);
+  const e = processDate(end);
+
+  const sameDay =
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() === end.getDate();
+
   let dateRange;
-  if (startDate.date !== endDate.date){
-    dateRange = `${startDate.month} ${startDate.date}-${endDate.month} ${endDate.date}`
-  } else if (!startDate.time) {
-    dateRange = `${startDate.month} ${startDate.date}`
+
+  if (sameDay) {
+    // single-day event
+    if (event.start.dateTime) {
+      dateRange = `${s.weekday}, ${s.time} – ${e.time}`;
+    } else {
+      dateRange = `${s.month} ${s.date}`;
+    }
   } else {
-    dateRange = `${startDate.weekday}, ${startDate.time}-${endDate.time}`;
+    // multi-day event (correct full date output)
+    dateRange = `${s.month} ${s.date} → ${e.month} ${e.date}`;
   }
+
   return {
     name: event.summary,
     description: event.description,
     location: event.location,
-    start: startDate,
-    end: endDate, 
+    start: s,
+    end: e,
     dateRange,
     link: event.htmlLink,
-  }
+  };
 }
+
 
 function createEvent(e, i) {
   const colors = ['blue', 'amber', 'rose', 'indigo', 'pink'];
